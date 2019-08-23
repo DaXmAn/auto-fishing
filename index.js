@@ -524,24 +524,88 @@ module.exports = function autoFishing(mod) {
 		request = {};
 		let filets = mod.game.inventory.findInBagOrPockets(204052);
 		let fishes = mod.game.inventory.findAllInBagOrPockets(flatSingle(ITEMS_FISHES)).filter(f => !config.blacklist.includes(f.id));
+		
+		//let bait = mod.game.inventory.findInBagOrPockets(Object.values(BAITS));
+		//select first bait from inventory
 		let bait = mod.game.inventory.findInBagOrPockets(Object.values(BAITS));
+		if (DEBUG) mod.command.message(`selected first bait from inventory, id: ${bait.id}, dbid: ${bait.dbid}`);
+		
+		//if selected bait amount is less than 2, check if there is another bait with amount more than 1
+		if(bait.amount<2){
+			mod.game.inventory.findAllInBagOrPockets(Object.values(BAITS)).forEach(abait => {
+				if(abait.amount > 1){
+					//found another bait with amount grater than 1
+					bait = abait;
+					if (DEBUG) mod.command.message(`selecting bait where amount is 2 or more: ${bait.id}`);
+					
+					//check if newly selected bait is used, and if not set action to use it
+					if (DEBUG) mod.command.message(`checking if bait: ${bait.id} is in use...`);
+					Object.keys(BAITS).forEach(bait_key => {
+						if(BAITS[bait_key] === bait.id){
+							if (DEBUG) mod.command.message(`found bait abnom id: ${bait_key} for selected bait id: ${bait.id}`);
+							if(abnormalityDuration(Number(bait_key)) <= 0){
+								action = "usebait";
+								if (DEBUG) mod.command.message(`now will use bait: ${bait.id}`);
+							}else{
+								if (DEBUG) mod.command.message(`bait id: ${bait.id} with abnom id: ${bait_key} is already in use`);
+							}
+							return false;
+						}
+					});
+	
+					return false;
+				}
+			});
+		}else{
+			
+			//check if newly selected bait is used, and if not set action to use it
+			if (DEBUG) mod.command.message(`checking if bait: ${bait.id} is in use...`);
+			Object.keys(BAITS).forEach(bait_key => {
+				if(BAITS[bait_key] === bait.id){
+					if (DEBUG) mod.command.message(`found bait abnom id: ${bait_key} for selected bait id: ${bait.id}`);
+					if(abnormalityDuration(Number(bait_key)) <= 0){
+						action = "usebait";
+						if (DEBUG) mod.command.message(`now will use bait: ${bait.id}`);
+					}else{
+						if (DEBUG) mod.command.message(`bait id: ${bait.id} with abnom id: ${bait_key} is already in use`);
+					}
+					return false;
+				}
+			});
+			
+		}
+		
 		let salad = mod.game.inventory.findInBagOrPockets([206020, 206040]);
 		if (config.autosalad) {
 			if (abnormalityDuration(70261) <= 0 && salad !== undefined)
 				action = "usesalad";
 		}
+		
 		if (bait === undefined) {
 			if (filets === undefined || filets.amount < 60) {
 				action = "dismantle";
 			} else {
 				action = "craft";
 			}
+		} else if(bait.amount < 2){
+			
+			if (DEBUG) mod.command.message(`Found that bait ${bait.name} amount is less than 2`);
+
+			if (filets === undefined || filets.amount < 60) {
+				if (DEBUG) mod.command.message('gotta dismantle some filets first to be able to craft bait');
+				action = "dismantle";
+			} else {
+				if (DEBUG) mod.command.message(`crafting bait: ${bait.id}`);
+				action = "craft";
+			}
+
 		} else {
 			if (Object.keys(BAITS).every((el) => {
 					return abnormalityDuration(Number(el)) <= 0;
 				}))
 				action = "usebait";
 		}
+		
 		if (mod.game.inventory.bag.size - mod.game.inventory.bagItems.length <= 3) {
 			if (filets === undefined || filets.amount < 60)
 				action = "dismantle";
