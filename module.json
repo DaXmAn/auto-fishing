@@ -5,8 +5,8 @@
         "niceName": "Auto-Fishing",
         "guiName": "Auto-Fishing"
     },
-    "supportUrl": "https://github.com/SoliaRdi/auto-fishing",
-    "servers": ["https://raw.githubusercontent.com/SoliaRdi/auto-fishing/master/"],
+    "supportUrl": "https://github.com/DaXmAn/auto-fishing",
+    "servers": ["https://raw.githubusercontent.com/DaXmAn/auto-fishing/master/"],
     "name": "auto-fishing",
     "description": "Fish easier!",
     "packets": {
