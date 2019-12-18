@@ -5,23 +5,23 @@ const moment = require('moment');
 module.exports = function autoFishing(mod) {
 	const ITEMS_FISHES = [
 		[206400, 206401], // Tier 0
-		[206402, 206403], // Tier 1
-		[206404, 206405], // Tier 2
-		[206406, 206407], // Tier 3
-		[206408, 206409, 206410], // Tier 4
-		[206411, 206412, 206413], // Tier 5
-		[206414, 206415, 206416, 206417], // Tier 6
-		[206418, 206419, 206420, 206421], // Tier 7
-		[206422, 206423, 206424, 206425], // Tier 8
-		[206426, 206427, 206428, 206429, 206430], // Tier 9
-		[206431, 206432, 206433, 206434, 206435], // Tier 10
-		[206500, 206501, 206502, 206503, 206504, 206505], // BAF
+		[206402, 206403, 206436], // Tier 1
+		[206404, 206405, 206437, 206438], // Tier 2
+		[206406, 206407, 206439, 206440], // Tier 3
+		[206408, 206409, 206410, 206441, 206442], // Tier 4
+		[206411, 206412, 206413, 206443, 206444], // Tier 5
+		[206414, 206415, 206416, 206417, 206445, 206446], // Tier 6
+		[206418, 206419, 206420, 206421, 206447, 206448], // Tier 7
+		[206422, 206423, 206424, 206425, 206449, 206450], // Tier 8
+		[206426, 206427, 206428, 206429, 206430, 206452, 206451, 206453], // Tier 9
+		[206431, 206432, 206433, 206434, 206435, 206454, 206455, 206456], // Tier 10
+		[206500, 206501, 206502, 206503, 206504, 206505, 206506, 206507, 206508, 206509, 206510, 206511, 206512, 206513, 206514] // BAF
 	];
 	const ITEMS_RODS = [
 		[...range(206721, 206728)], //Fairywing Rods
 		[...range(206701, 206708)], //Xermetal Rods
 		[...range(206711, 206718)], //Ash Sapling Rods
-		[206700], //Old Rod
+		[206700] //Old Rod
 	];
 	const PRICES = [2, 4, 6, 8, 10, 12, 14, 16, 19, 22, 25, 50];
 	const FILET_ID = 204052;
@@ -46,6 +46,7 @@ module.exports = function autoFishing(mod) {
 		70379: 143188, // Event Bait I
 		5000012: 143188, // Event Bait II,
 		5060038: 856470, // ICEFISH BAIT
+		70276: 206053	// Pilidium Bait, remove from inv and bag all others baits
 	};
 	const ITEMS_BANKER = [60264, 160326, 170003, 210111, 216754];
 	const ITEMS_SELLER = [160324, 170004, 210109, 60262, 60263, 160325, 170006, 210110];
@@ -76,7 +77,7 @@ module.exports = function autoFishing(mod) {
 			'C_STORE_COMMIT': false,
 		}
 	};
-
+	let dismantle_contract_type = (mod.majorPatchVersion >= 85 ? 90 : 89);
 	let statistic = [],
 		startTime = null,
 		endTime = null,
@@ -119,6 +120,9 @@ module.exports = function autoFishing(mod) {
 		mod.clearAllTimeouts();
 		if (enabled) {
 			mod.command.message('Auto fishing activated. Manually start fishing now.');
+			if(mod.majorPatchVersion >= 88){
+				mod.command.message('Idk if current solution is safe.');
+			}
 		} else {
 			mod.command.message('Auto fishing deactivated.');
 		}
@@ -136,7 +140,11 @@ module.exports = function autoFishing(mod) {
 			}
 			hook('S_RP_ADD_ITEM_TO_DECOMPOSITION_CONTRACT', 1, sRpAddItem);
 			hook('S_SPAWN_NPC', 11, sSpawnNpc);
-			hook('S_ABNORMALITY_BEGIN', 3, sAbnBegin);
+			hook('S_ABNORMALITY_BEGIN', mod.majorPatchVersion >= 86?4:3, sAbnBegin);
+			if(mod.majorPatchVersion >= 88){
+				hook('C_CAST_FISHING_ROD', 2, cCastFishingRod);
+				hook('C_STOP_FISHING', 2, cStopFishing);
+			}
 		} else {
 			for (var i = 0; i < hooks.length; i++) {
 				mod.unhook(hooks[i]);
@@ -150,6 +158,18 @@ module.exports = function autoFishing(mod) {
 	};
 
 	//region Hooks
+
+	function cCastFishingRod(event){
+		event.counter=1;
+		event.unk1=237;
+		return true;
+	}
+	function cStopFishing(event){
+		event.counter=1;
+		event.unk=1;
+		return true;
+	}
+
 	function sAbnBegin(event) {
 		if (mod.game.me.is(event.target)) {
 			switch (request.action) {
@@ -211,7 +231,10 @@ module.exports = function autoFishing(mod) {
 	function sFishingBite(event) {
 		if (mod.game.me.is(event.gameId)) {
 			mod.setTimeout(() => {
-				mod.send('C_START_FISHING_MINIGAME', 1, {});
+				mod.send('C_START_FISHING_MINIGAME', mod.majorPatchVersion>=88?2:1, {
+					counter:1,
+					unk:15
+				});
 			}, rng(config.time.stMinigame));
 		}
 	}
@@ -221,7 +244,9 @@ module.exports = function autoFishing(mod) {
 			lastLevel = event.level;
 			if (config.skipbaf && (event.level == 11 || (abnormalityDuration(70261) > 0 && event.level == 7))) {
 				mod.setTimeout(() => {
-					mod.send('C_END_FISHING_MINIGAME', 1, {
+					mod.send('C_END_FISHING_MINIGAME', mod.majorPatchVersion>=88?2:1, {
+						counter:1,
+						unk:24,
 						success: false
 					});
 					mod.setTimeout(() => {
@@ -231,7 +256,9 @@ module.exports = function autoFishing(mod) {
 
 			} else {
 				mod.setTimeout(() => {
-					mod.send('C_END_FISHING_MINIGAME', 1, {
+					mod.send('C_END_FISHING_MINIGAME', mod.majorPatchVersion>=88?2:1, {
+						counter:1,
+						unk:24,
 						success: true
 					});
 				}, rng(config.time.minigame));
@@ -289,7 +316,7 @@ module.exports = function autoFishing(mod) {
 				}
 			}
 			case "dismantle": {
-				if (event.type == 89) {
+				if (event.type == dismantle_contract_type) {
 					request.contractId = event.id;
 					dismantleFish();
 				}
@@ -316,7 +343,7 @@ module.exports = function autoFishing(mod) {
 				}
 			}
 			case "dismantle": {
-				if (event.type == 89 && request.contractId == event.id) {
+				if (event.type == dismantle_contract_type && request.contractId == event.id) {
 					mod.setTimeout(() => {
 						makeDecision();
 					}, rng(config.time.contract));
@@ -417,7 +444,7 @@ module.exports = function autoFishing(mod) {
 	mod.hook('S_DESPAWN_NPC', 3, event => {
 		delete npcList[event.gameId];
 	});
-	mod.hook('S_SPAWN_USER', 14, event => {
+	mod.hook('S_SPAWN_USER', 15, event => {
 		if (event.gm && enabled)
 			switch (config.gmmode) {
 				case 'exit': {
@@ -492,14 +519,14 @@ module.exports = function autoFishing(mod) {
 
 	//region Abnormality tracking
 	let abnormalities = {};
-	mod.hook('S_ABNORMALITY_BEGIN', 3, event => {
+	mod.hook('S_ABNORMALITY_BEGIN', mod.majorPatchVersion >= 86?4:3, event => {
 		if (mod.game.me.is(event.target))
-			abnormalities[event.id] = Date.now() + event.duration;
+			abnormalities[event.id] = Date.now() + Number.parseInt(event.duration);
 	});
 
-	mod.hook('S_ABNORMALITY_REFRESH', 1, event => {
+	mod.hook('S_ABNORMALITY_REFRESH', mod.majorPatchVersion >= 86?2:1, event => {
 		if (mod.game.me.is(event.target))
-			abnormalities[event.id] = Date.now() + event.duration;
+			abnormalities[event.id] = Date.now() + Number.parseInt(event.duration);
 	});
 
 	mod.hook('S_ABNORMALITY_END', 1, event => {
@@ -522,12 +549,10 @@ module.exports = function autoFishing(mod) {
 		}, 300 * 1000);
 		let action = "userod";
 		request = {};
-		let filets = mod.game.inventory.findInBagOrPockets(204052);
+		let filets = mod.game.inventory.findInBagOrPockets(FILET_ID);
 		let fishes = mod.game.inventory.findAllInBagOrPockets(flatSingle(ITEMS_FISHES)).filter(f => !config.blacklist.includes(f.id));
-		
-		//let bait = mod.game.inventory.findInBagOrPockets(Object.values(BAITS));
-		//select first bait from inventory
 		let bait = mod.game.inventory.findInBagOrPockets(Object.values(BAITS));
+		let salad = mod.game.inventory.findInBagOrPockets(ITEMS_SALAD);
 		if (DEBUG) mod.command.message(`selected first bait from inventory, id: ${bait.id}, dbid: ${bait.dbid}`);
 		
 		//if selected bait amount is less than 2, check if there is another bait with amount more than 1
@@ -557,7 +582,6 @@ module.exports = function autoFishing(mod) {
 				}
 			});
 		}else{
-			
 			//check if newly selected bait is used, and if not set action to use it
 			if (DEBUG) mod.command.message(`checking if bait: ${bait.id} is in use...`);
 			Object.keys(BAITS).forEach(bait_key => {
@@ -572,14 +596,13 @@ module.exports = function autoFishing(mod) {
 					return false;
 				}
 			});
-			
 		}
 		
-		let salad = mod.game.inventory.findInBagOrPockets([206020, 206040]);
 		if (config.autosalad) {
 			if (abnormalityDuration(70261) <= 0 && salad !== undefined)
 				action = "usesalad";
 		}
+		
 		
 		if (bait === undefined) {
 			if (filets === undefined || filets.amount < 60) {
@@ -605,6 +628,22 @@ module.exports = function autoFishing(mod) {
 				}))
 				action = "usebait";
 		}
+		
+		
+		/*
+		if (bait === undefined) {
+			if (filets === undefined || filets.amount < 60) {
+				action = "dismantle";
+			} else {
+				action = "craft";
+			}
+		} else {
+			if (Object.keys(BAITS).every((el) => {
+					return abnormalityDuration(Number(el)) <= 0;
+				}))
+				action = "usebait";
+		}
+		*/
 		
 		if (mod.game.inventory.bag.size - mod.game.inventory.bagItems.length <= 3) {
 			if (filets === undefined || filets.amount < 60)
@@ -770,7 +809,7 @@ module.exports = function autoFishing(mod) {
 		switch (request.action) {
 			case "dismantle": {
 				mod.setTimeout(() => {
-					requestContract(89);
+					requestContract(dismantle_contract_type);
 				}, rng(config.time.contract));
 				break;
 			}
@@ -839,7 +878,7 @@ module.exports = function autoFishing(mod) {
 				invenPos: request.filets.slot,
 				id: request.filets.id,
 				dbid: request.filets.dbid,
-				amont: amount
+				amount: amount
 			});
 		} else {
 			mod.send('C_PUT_WARE_ITEM', 2, {
@@ -934,7 +973,7 @@ module.exports = function autoFishing(mod) {
 			contract: request.contractId
 		});
 		mod.setTimeout(() => { //reduce opcodes
-			cancelContract(89, request.contractId);
+			cancelContract(dismantle_contract_type, request.contractId);
 		}, 10000);
 	}
 
@@ -1060,7 +1099,7 @@ module.exports = function autoFishing(mod) {
 	//endregion
 
 	//region Command
-	mod.command.add('fish', (key, arg, arg2) => {
+	mod.command.add('meh', (key, arg, arg2) => {
 		switch (key) {
 			case 'blacklist':
 				switch (arg) {
